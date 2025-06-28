@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
-const jwksClient = require("jwks-rsa");
-const dotenv = require("dotenv");
+import jwt from "jsonwebtoken";
+import jwksClient from "jwks-rsa";
+import dotenv from "dotenv";
 dotenv.config();
 
 const client = jwksClient({
@@ -9,15 +9,12 @@ const client = jwksClient({
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
-    if (err) {
-      return callback(err);
-    }
     const signingKey = key.publicKey || key.rsaPublicKey;
     callback(null, signingKey);
   });
 }
 
-const authenticateToken = (req, res, next) => {
+export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
@@ -45,8 +42,4 @@ const authenticateToken = (req, res, next) => {
       next();
     }
   );
-};
-
-module.exports = {
-  authenticateToken,
 };

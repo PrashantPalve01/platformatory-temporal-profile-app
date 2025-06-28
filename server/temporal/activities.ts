@@ -1,57 +1,116 @@
-// server/temporal/activities.ts
+import { log } from "@temporalio/activity";
+import mongoose from "mongoose";
 import axios from "axios";
-// @ts-ignore – your model is JavaScript, so we bypass TS here
-import userModel from "../models/userModel.js";
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-/** Shape of data your profile can accept */
-interface ProfileData {
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  city?: string;
-  pincode?: string;
+// Define User schema for activities.
+const userSchema = new mongoose.Schema(
+  {
+    auth0Id: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
+    firstName: { type: String, default: "" },
+    lastName: { type: String, default: "" },
+    phoneNumber: { type: String, default: "" },
+    city: { type: String, default: "" },
+    pincode: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+
+export interface ProfileData {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  city: string;
+  pincode: string;
 }
 
-export async function updateProfileAndSyncCrudCrud(
+//  Activity: Update user profile in MongoDB
+export async function updateDatabase(
   userId: string,
   profileData: ProfileData
-) {
-  /* ---------- 1. Update MongoDB ---------- */
-  const user = await userModel.findOneAndUpdate(
-    { auth0Id: userId },
-    profileData,
-    { new: true } // return updated document
-  );
-
-  if (!user) {
-    throw new Error("User not found");
-  }
-  console.log("✅ Profile saved to database successfully");
-
-  /* ---------- 2. Send to CrudCrud after DB save ---------- */
-  const CRUD_API = process.env.CRUDCRUD_API_URL;
-
-  if (!CRUD_API) {
-    throw new Error(
-      "CRUDCRUD_API_URL is not defined in environment variables."
-    );
-  }
-
-  console.log("🔄 Temporal Activity: Updating CrudCrud API…");
-
+): Promise<void> {
   try {
-    await axios.post(CRUD_API, { userId, ...profileData });
-    console.log("✅ CrudCrud API updated successfully");
-  } catch (error: any) {
-    // If CrudCrud record doesn’t exist (404), create one instead
-    if (error.response?.status === 404) {
-      await axios.post(CRUD_API, { userId, ...profileData });
-      console.log("✅ CrudCrud API record created successfully");
+    log.info("Updating database for user", { userId });
+
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URI!);
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { auth0Id: userId },
+      {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        phoneNumber: profileData.phoneNumber,
+        city: profileData.city,
+        pincode: profileData.pincode,
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      throw new Error(`User not found: ${userId}`);
+    }
+
+    log.info("Database update successful", {
+      userId,
+      updatedFields: Object.keys(profileData),
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      log.error("Database update failed", { userId, error: error.message });
+      throw new Error(`Failed to update database: ${error.message}`);
     } else {
-      console.error("❌ CrudCrud API error:", error.message);
-      throw error;
+      log.error("Database update failed with unknown error", { userId, error });
+      throw new Error("Failed to update database: Unknown error");
     }
   }
+}
 
-  return user; // optional: return updated user
+//  Activity: Sync profile data to CrudCrud API
+export async function syncToCrudCrud(profileData: ProfileData): Promise<void> {
+  try {
+    log.info("Starting CrudCrud sync", { profileData });
+
+    const crudCrudUrl = process.env.CRUDCRUD_API_URL;
+    if (!crudCrudUrl) {
+      throw new Error("CRUDCRUD_API_URL environment variable not set");
+    }
+
+    const crudData = {
+      ...profileData,
+      syncedAt: new Date().toISOString(),
+      source: "profile-app",
+    };
+
+    // POST to CrudCrud API
+    const response = await axios.post(crudCrudUrl, crudData, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      timeout: 30000, // 30 second timeout
+    });
+
+    if (response.status >= 200 && response.status < 300) {
+      log.info("CrudCrud sync successful", {
+        status: response.status,
+        responseData: response.data,
+      });
+    } else {
+      throw new Error(`CrudCrud API returned status: ${response.status}`);
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      log.error("Something failed", { error: error.message });
+      throw new Error(`Failed: ${error.message}`);
+    } else {
+      log.error("Something failed", { error });
+      throw new Error("Unknown error occurred");
+    }
+  }
 }

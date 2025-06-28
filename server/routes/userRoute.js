@@ -1,16 +1,17 @@
-const express = require("express");
-const { authenticateToken } = require("../middleware/auth");
-const userModel = require("../models/userModel");
-const { Connection, Client } = require("@temporalio/client");
+import express from "express";
+import userModel from "../models/userModel.js";
+import { authenticateToken } from "../middleware/auth.js";
+import { Connection, Client } from "@temporalio/client";
 
 const userRoute = express.Router();
+
+const connection = await Connection.connect();
+const client = new Client({ connection });
 
 // Get user profile
 userRoute.get("/", authenticateToken, async (req, res) => {
   try {
     let user = await userModel.findOne({ auth0Id: req.user.sub });
-    console.log(req.user.given_name);
-    console.log(req.user.family_name);
 
     if (!user) {
       // Create user if doesn't exist
@@ -25,36 +26,53 @@ userRoute.get("/", authenticateToken, async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.log(error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// Update user profile via Temporal
+// Update user profile using Temporal workflow
 userRoute.put("/", authenticateToken, async (req, res) => {
-  const { firstName, lastName, phoneNumber, city, pincode } = req.body;
-  const userId = req.user.sub;
-
   try {
-    const connection = await Connection.connect();
-    const client = new Client({ connection });
+    const { firstName, lastName, phoneNumber, city, pincode } = req.body;
+    const userId = req.user.sub;
 
-    const workflow = await client.workflow.start("saveUserDataWorkflow", {
-      args: [userId, { firstName, lastName, phoneNumber, city, pincode }],
-      taskQueue: "profile-updates",
-      workflowId: `profile-${userId}-${Date.now()}`,
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({ message: "userModel ID is required" });
+    }
+
+    console.log(`🚀 Starting Temporal workflow for user: ${userId}`);
+
+    // Start Temporal workflow
+    const workflow = await client.workflow.start("updateProfileWorkflow", {
+      args: [
+        {
+          userId,
+          profileData: {
+            firstName: firstName || "",
+            lastName: lastName || "",
+            phoneNumber: phoneNumber || "",
+            city: city || "",
+            pincode: pincode || "",
+          },
+        },
+      ],
+      taskQueue: "profile-update-queue",
+      workflowId: `profile-update-${userId}-${Date.now()}`,
     });
 
+    console.log(`✅ Temporal workflow started: ${workflow.workflowId}`);
+
+    // Return success immediately (workflow runs asynchronously)
     res.json({
-      message: "Profile update initiated",
-      runId: workflow.workflowId,
+      message: "Profile update initiated successfully",
+      workflowId: workflow.workflowId,
+      status: "processing",
     });
-  } catch (err) {
-    res.status(500).json({
-      message: "Failed to update profile",
-      error: err.message,
-    });
+  } catch (error) {
+    console.error("❌ Profile update failed:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-module.exports = userRoute;
+export default userRoute;
