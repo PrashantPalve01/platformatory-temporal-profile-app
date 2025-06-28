@@ -3,10 +3,6 @@
 > Full-stack assignment for **Platformatory Labs**  
 > Log in with Auth0, edit your profile, and let a Temporal workflow save it to MongoDB then sync to CrudCrud 10 seconds later.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](https://nodejs.org/)
-[![React Version](https://img.shields.io/badge/react-18.x-blue)](https://reactjs.org/)
-
 ---
 
 ## 🚀 Project Overview – What & Why
@@ -102,7 +98,6 @@ MONGODB_URI=mongodb://localhost:27017/profile-temporal
 AUTH0_DOMAIN=dev-xxxxx.us.auth0.com
 AUTH0_AUDIENCE=https://profilepro/api
 CRUDCRUD_API_URL=https://crudcrud.com/api/<your-unique-token>
-NODE_ENV=development
 ```
 
 #### Frontend Environment (`client/.env`)
@@ -146,7 +141,7 @@ Open **3 terminal tabs** and run:
 
 | Terminal  | Command                                       | Purpose            |
 | --------- | --------------------------------------------- | ------------------ |
-| **Tab 1** | `cd server && npm run dev`                    | Express API server |
+| **Tab 1** | `cd server && npm start`                      | Express API server |
 | **Tab 2** | `cd server/temporal && npx ts-node worker.ts` | Temporal worker    |
 | **Tab 3** | `cd client && npm run dev`                    | React frontend     |
 
@@ -154,7 +149,7 @@ Open **3 terminal tabs** and run:
 
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:5000/api
-- **Temporal Web UI**: http://localhost:8233
+- **Temporal Web UI**: http://localhost:8080
 
 ---
 
@@ -165,32 +160,32 @@ profile-temporal-app/
 │
 ├── client/                    # React Frontend (Vite + Tailwind)
 │   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── services/         # API service layer
-│   │   └── utils/            # Helper functions
+|   |   ├── components/       # Reusable UI components
+│   │   ├── pages/            # Page components
+│   │   └── utils/            # API utility functions
 │   ├── public/               # Static assets
 │   └── package.json
 │
 ├── server/                   # Node.js Backend
 │   ├── config/
-│   │   └── db.ts            # MongoDB connection singleton
+│   │   └── db.js            # MongoDB connection singleton
 │   ├── middleware/
-│   │   └── auth.ts          # Auth0 JWT verification
+│   │   └── auth.js          # Auth0 JWT verification
 │   ├── models/
-│   │   └── userModel.ts     # Mongoose schema
+│   │   └── userModel.js     # Mongoose schema
 │   ├── routes/
-│   │   └── userRoute.ts     # REST API endpoints
+│   │   └── userRoute.js     # REST API endpoints
 │   ├── temporal/            # Temporal.io Integration
 │   │   ├── activities.ts    # Business logic (DB + API calls)
 │   │   ├── workflows.ts     # Workflow definitions
-│   │   └── worker.ts        # Worker process entry point
+│   │   ├── worker.ts        # Worker process entry point
+│   │   ├── package.json
+│   │   └── tsconfig.json
 │   ├── utils/               # Shared utilities
-│   ├── server.ts           # Express app setup
+│   ├── server.js           # Express app setup
 │   └── package.json
 │
 ├── screenshots/             # Application screenshots
-├── docker-compose.yml      # Optional: Full stack Docker setup
 └── README.md
 ```
 
@@ -198,7 +193,6 @@ profile-temporal-app/
 
 #### **Database Layer**
 
-- **Single MongoDB Connection**: Reused across all modules for efficiency
 - **Mongoose ODM**: Type-safe schema validation and queries
 - **Connection Pooling**: Automatic connection management
 
@@ -212,8 +206,6 @@ profile-temporal-app/
 
 - **Temporal Fan-out Pattern**: Each profile update triggers independent workflow
 - **Unique Workflow IDs**: `profile-update-{userId}-{timestamp}` prevents conflicts
-- **Retry Policies**: 3-attempt limit with exponential backoff
-- **Deterministic Execution**: Guaranteed workflow completion even after server restarts
 
 #### **API Design**
 
@@ -224,36 +216,40 @@ profile-temporal-app/
 #### **Frontend Architecture**
 
 - **Component-Based**: Reusable UI components with single responsibility
-- **Custom Hooks**: Business logic separation from UI components
-- **Service Layer**: Centralized API communication
-- **State Management**: React Context for global state
+- **State Management**: React hooks for local state management
+- **Utils Layer**: Centralized API communication
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
 
 ---
 
 ## 📸 Screenshots & Demo
 
+### Landing Page
+
+![Home Scrren](./client/public/landing.png)
+_Modern landing page with Auth0 authentication_
+
 ### Authentication Flow
 
-![Login Screen](./screenshots/login-screen.png)
+![Login Screen](./client/public/login.png)
 _Secure Auth0 login with social providers_
 
 ### Profile Management
 
-![Profile Editor](./screenshots/profile-editor.png)
+![Profile](./client/public/profile.png)
+_User profile display with edit functionality_
+
+![Profile Editor](./client/public/editProfile.png)
 _Real-time profile editing with instant feedback_
 
 ### Workflow Monitoring
 
-![Temporal Dashboard](./screenshots/temporal-dashboard.png)
+![Temporal Dashboard](./client/public/temporal-dashboard.png)
 _Temporal Web UI showing completed workflows_
 
 ### Mobile Responsive
 
-<img src="./screenshots/mobile-view.png" alt="Mobile View" width="300">
-
 _Responsive design across all devices_
-
-> 📝 **Note**: Add your actual screenshots to the `/screenshots` folder and update the paths above.
 
 ---
 
@@ -274,45 +270,15 @@ npm run test:e2e
 
 ### Code Quality
 
-- **TypeScript**: Full type safety across backend and Temporal workers
+- **TypeScript**: Full type safety across Temporal workers
 - **ESLint**: Code linting with consistent style rules
 - **Prettier**: Automated code formatting
 
 ---
 
-## 🚀 Deployment & Production
-
-### Environment Variables for Production
-
-```env
-# Backend
-NODE_ENV=production
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/profiledb
-AUTH0_DOMAIN=your-production-domain.auth0.com
-CRUDCRUD_API_URL=https://crudcrud.com/api/your-production-token
-
-# Frontend
-VITE_AUTH0_DOMAIN=your-production-domain.auth0.com
-VITE_API_BASE_URL=https://your-api-domain.com/api
-```
-
-### Build Commands
-
-```bash
-# Frontend production build
-cd client && npm run build
-
-# Backend (already production-ready)
-cd server && npm start
-```
-
----
-
-## 🎁 Extras & Advanced Features
-
 ### ✨ Implemented Beyond Requirements
 
-- **📝 TypeScript Integration**: Full type safety across the entire stack
+- **📝 TypeScript Integration**: Full type safety across the temporal code
 - **🔍 Central Logging**: Structured logging with Temporal workflow/activity context
 - **🔄 Graceful Error Handling**: User-friendly error messages and recovery
 - **📊 Monitoring Dashboard**: Real-time workflow status via Temporal Web UI
@@ -363,8 +329,7 @@ docker ps | grep mongo
 
 ### Getting Help
 
-- 📧 **Email**: prashant.palve@example.com
-- 💬 **Issues**: [GitHub Issues](https://github.com/<your-github>/profile-temporal-app/issues)
+- 📧 **Email**: palveprashant526@gmail.com
 - 📖 **Documentation**: Check inline code comments and this README
 
 ### Contributing
@@ -377,19 +342,13 @@ docker ps | grep mongo
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 👨‍💻 Author
 
 **Prashant Palve** – Full-Stack Developer
 
-- 🌐 **Portfolio**: [your-portfolio.com](https://your-portfolio.com)
-- 💼 **LinkedIn**: [linkedin.com/in/prashant-palve](https://linkedin.com/in/prashant-palve)
-- 🐙 **GitHub**: [@your-github](https://github.com/your-github)
+- 🌐 **Portfolio**: [portfolio.com](https://prashantpalve-portfolio.netlify.app/)
+- 💼 **LinkedIn**: [linkedin.com](www.linkedin.com/in/prashantpalve)
+- 🐙 **GitHub**: [github](https://github.com/PrashantPalve01)
 
 _Built with ❤️ for Platformatory Labs technical assessment_
 

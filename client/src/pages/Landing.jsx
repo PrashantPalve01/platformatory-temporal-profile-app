@@ -40,7 +40,7 @@ const Landing = () => {
           </div>
 
           {/* Features Grid */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16 animate-slide-up">
+          {/* <div className="grid md:grid-cols-3 gap-8 mb-16 animate-slide-up">
             <div className="card text-center hover:transform hover:scale-105 transition-all duration-300">
               <div className="bg-gradient-to-r from-blue-500 to-purple-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Shield className="h-8 w-8 text-white" />
@@ -76,7 +76,7 @@ const Landing = () => {
                 Beautiful design with smooth animations
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* CTA Section */}
           <div className="animate-fade-in">
@@ -89,9 +89,6 @@ const Landing = () => {
                 →
               </span>
             </button>
-            <p className="text-gray-500 mt-4">
-              No credit card required • Free forever
-            </p>
           </div>
         </div>
       </main>
