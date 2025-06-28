@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "outDir": "./temporal/dist",
+    "rootDir": "./temporal",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "target": "es6",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "strict": true
+  },
+  "include": ["temporal/**/*.ts"],
+  "exclude": ["models/**/*.js"]
+}

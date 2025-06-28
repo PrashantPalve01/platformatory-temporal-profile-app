@@ -1,52 +1,59 @@
 const express = require("express");
-const axios = require("axios");
+const { authenticateToken } = require("../middleware/auth");
 const userModel = require("../models/userModel");
+const { Connection, Client } = require("@temporalio/client");
+
 const userRoute = express.Router();
 
 // Get user profile
-userRoute.get("/", async (req, res) => {
+userRoute.get("/", authenticateToken, async (req, res) => {
   try {
-    const auth0Id = req.user.sub;
-    let user = await userModel.findOne({ auth0Id });
+    let user = await userModel.findOne({ auth0Id: req.user.sub });
+    console.log(req.user.given_name);
+    console.log(req.user.family_name);
 
     if (!user) {
       // Create user if doesn't exist
       user = new userModel({
-        auth0Id,
-        email:
-          req.user.email ||
-          req.user[`${process.env.AUTH0_AUDIENCE}/email`] ||
-          "",
+        auth0Id: req.user.sub,
+        email: req.user.email || "",
+        firstName: req.user.given_name || "",
+        lastName: req.user.family_name || "",
       });
       await user.save();
     }
 
     res.json(user);
   } catch (error) {
-    console.error("Get profile error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.log(error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
-// Update user profile (this will trigger Temporal workflow)
-userRoute.put("/", async (req, res) => {
-  try {
-    const auth0Id = req.user.sub;
-    const { firstName, lastName, phoneNumber, city, pincode } = req.body;
+// Update user profile via Temporal
+userRoute.put("/", authenticateToken, async (req, res) => {
+  const { firstName, lastName, phoneNumber, city, pincode } = req.body;
+  const userId = req.user.sub;
 
-    // Start Temporal workflow
-    const temporalClient = require("../temporal-client");
-    await temporalClient.startWorkflow({
+  try {
+    const connection = await Connection.connect();
+    const client = new Client({ connection });
+
+    const workflow = await client.workflow.start("saveUserDataWorkflow", {
+      args: [userId, { firstName, lastName, phoneNumber, city, pincode }],
       taskQueue: "profile-updates",
-      workflowType: "profileUpdateWorkflow",
-      workflowId: `profile-update-${auth0Id}-${Date.now()}`,
-      args: [auth0Id, { firstName, lastName, phoneNumber, city, pincode }],
+      workflowId: `profile-${userId}-${Date.now()}`,
     });
 
-    res.json({ message: "Profile update started", status: "processing" });
-  } catch (error) {
-    console.error("Update profile error:", error);
-    res.status(500).json({ error: "Server error" });
+    res.json({
+      message: "Profile update initiated",
+      runId: workflow.workflowId,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to update profile",
+      error: err.message,
+    });
   }
 });
 

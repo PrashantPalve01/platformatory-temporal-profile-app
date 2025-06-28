@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { toast } from "react-hot-toast";
-import ProfileForm from "./ProfileForm";
-import { api } from "../utils/api";
-import { User, Loader2, CheckCircle, Clock } from "lucide-react";
+import toast from "react-hot-toast";
+import { Save, Edit3, User, Phone, MapPin, Hash, Mail } from "lucide-react";
+import { getProfile, updateProfile } from "../utils/api";
 
 const Profile = () => {
-  const { user, getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, user } = useAuth0();
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
@@ -14,167 +13,247 @@ const Profile = () => {
     city: "",
     pincode: "",
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    loadProfile();
+    fetchProfile();
   }, []);
 
-  const loadProfile = async () => {
+  const fetchProfile = async () => {
     try {
-      setIsLoading(true);
       const token = await getAccessTokenSilently();
-      const response = await api.get("/profile", {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await getProfile(token);
+      setProfile({
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        phoneNumber: data.phoneNumber || "",
+        city: data.city || "",
+        pincode: data.pincode || "",
       });
-
-      if (response.data) {
-        setProfile(response.data);
-      } else {
-        // Initialize with Auth0 data if no profile exists
-        setProfile((prev) => ({
-          ...prev,
-          firstName: user?.given_name || "",
-          lastName: user?.family_name || "",
-        }));
-      }
     } catch (error) {
-      console.error("Error loading profile:", error);
-      // Initialize with Auth0 data on error
-      setProfile((prev) => ({
-        ...prev,
-        firstName: user?.given_name || "",
-        lastName: user?.family_name || "",
-      }));
+      toast.error("Failed to load profile");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleSave = async (updatedProfile) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
     try {
-      setSaving(true);
       const token = await getAccessTokenSilently();
-
-      const response = await api.put("/profile", updatedProfile, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      setProfile(response.data.profile);
-      setLastSaved(new Date());
-
-      toast.success(
-        "Profile updated successfully! Syncing with external API...",
-        {
-          icon: "✅",
-        }
-      );
+      await updateProfile(token, profile);
+      toast.success("Profile updated successfully!");
+      setIsEditing(false);
     } catch (error) {
-      console.error("Error saving profile:", error);
-      toast.error("Failed to update profile. Please try again.");
+      console.log(error);
     } finally {
       setSaving(false);
     }
   };
 
-  if (isLoading) {
+  const handleChange = (e) => {
+    setProfile({
+      ...profile,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading your profile...</p>
+      <div className="card max-w-2xl mx-auto">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div className="space-y-3">
+            <div className="h-12 bg-gray-200 rounded"></div>
+            <div className="h-12 bg-gray-200 rounded"></div>
+            <div className="h-12 bg-gray-200 rounded"></div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Profile Header */}
-      <div className="card p-6 mb-8 animate-fade-in">
-        <div className="flex items-center space-x-6">
-          <div className="relative">
-            <img
-              src={user?.picture}
-              alt={user?.name}
-              className="w-20 h-20 rounded-full ring-4 ring-blue-500/20"
-            />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
-          </div>
-
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              {profile.firstName || profile.lastName
-                ? `${profile.firstName} ${profile.lastName}`.trim()
-                : user?.name || "Welcome!"}
-            </h1>
-            <p className="text-gray-600 mb-2">{user?.email}</p>
-
-            {lastSaved && (
-              <div className="flex items-center text-sm text-green-600">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Last saved: {lastSaved.toLocaleTimeString()}
-              </div>
-            )}
-          </div>
-
-          <div className="text-right">
-            <div className="text-sm text-gray-500 mb-1">Profile Status</div>
-            <div className="flex items-center text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Active
-            </div>
-          </div>
-        </div>
+    <div className="card max-w-2xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-2xl font-bold text-gray-800">
+          Profile Information
+        </h3>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+            isEditing
+              ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+          }`}
+        >
+          <Edit3 className="h-4 w-4" />
+          <span>{isEditing ? "Cancel" : "Edit"}</span>
+        </button>
       </div>
 
-      {/* Profile Form */}
-      <div className="card p-6 animate-slide-up">
-        <div className="flex items-center space-x-3 mb-6">
-          <User className="w-5 h-5 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
-            Edit Profile Information
-          </h2>
-          {isSaving && (
-            <div className="flex items-center text-blue-600">
-              <Clock className="w-4 h-4 mr-1 animate-spin" />
-              <span className="text-sm">Saving...</span>
-            </div>
+      {/* User Avatar & Email */}
+      <div className="flex items-center space-x-4 mb-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+          {user?.picture ? (
+            <img
+              src={user.picture}
+              alt="Profile"
+              className="w-16 h-16 rounded-full"
+            />
+          ) : (
+            <User className="h-8 w-8 text-white" />
           )}
         </div>
-
-        <ProfileForm
-          profile={profile}
-          onSave={handleSave}
-          isLoading={isSaving}
-        />
-      </div>
-
-      {/* Temporal Workflow Info */}
-      <div className="card p-6 mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-        <div className="flex items-start space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Clock className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-1">
-              Temporal Workflow Integration
-            </h3>
-            <p className="text-sm text-gray-600 mb-2">
-              Your profile changes are processed through Temporal workflows with
-              the following steps:
-            </p>
-            <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-              <li>Immediate save to MongoDB database</li>
-              <li>10-second delay for external API sync</li>
-              <li>Update sent to CrudCrud API for backup</li>
-              <li>Workflow completion confirmation</li>
-            </ul>
+        <div>
+          <h4 className="text-xl font-semibold text-gray-800">
+            {profile.firstName || profile.lastName
+              ? `${profile.firstName} ${profile.lastName}`.trim()
+              : "Your Name"}
+          </h4>
+          <div className="flex items-center space-x-2 text-gray-600">
+            <Mail className="h-4 w-4" />
+            <span>{user?.email}</span>
           </div>
         </div>
       </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* First Name */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <User className="h-4 w-4 inline mr-2" />
+              First Name
+            </label>
+            <input
+              type="text"
+              name="firstName"
+              value={profile.firstName}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className={`input-field ${
+                !isEditing ? "bg-gray-50 cursor-not-allowed" : ""
+              }`}
+              placeholder="Enter your first name"
+            />
+          </div>
+
+          {/* Last Name */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <User className="h-4 w-4 inline mr-2" />
+              Last Name
+            </label>
+            <input
+              type="text"
+              name="lastName"
+              value={profile.lastName}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className={`input-field ${
+                !isEditing ? "bg-gray-50 cursor-not-allowed" : ""
+              }`}
+              placeholder="Enter your last name"
+            />
+          </div>
+        </div>
+
+        {/* Phone Number */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <Phone className="h-4 w-4 inline mr-2" />
+            Phone Number
+          </label>
+          <input
+            type="tel"
+            name="phoneNumber"
+            value={profile.phoneNumber}
+            onChange={handleChange}
+            disabled={!isEditing}
+            className={`input-field ${
+              !isEditing ? "bg-gray-50 cursor-not-allowed" : ""
+            }`}
+            placeholder="Enter your phone number"
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* City */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <MapPin className="h-4 w-4 inline mr-2" />
+              City
+            </label>
+            <input
+              type="text"
+              name="city"
+              value={profile.city}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className={`input-field ${
+                !isEditing ? "bg-gray-50 cursor-not-allowed" : ""
+              }`}
+              placeholder="Enter your city"
+            />
+          </div>
+
+          {/* Pincode */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <Hash className="h-4 w-4 inline mr-2" />
+              Pincode
+            </label>
+            <input
+              type="text"
+              name="pincode"
+              value={profile.pincode}
+              onChange={handleChange}
+              disabled={!isEditing}
+              className={`input-field ${
+                !isEditing ? "bg-gray-50 cursor-not-allowed" : ""
+              }`}
+              placeholder="Enter your pincode"
+            />
+          </div>
+        </div>
+
+        {isEditing && (
+          <div className="flex space-x-4 pt-6">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary flex items-center space-x-2 flex-1"
+            >
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(false);
+                fetchProfile(); // Reset form
+              }}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </form>
     </div>
   );
 };
