@@ -38,15 +38,15 @@ Modern applications need secure user authentication, reliable data persistence, 
 ### Prerequisites
 
 - Node.js (v16 or higher)
-- Docker and Docker Compose
-- MongoDB (local or Docker)
+- **Docker Desktop** (for running Temporal server and MongoDB)
 - Auth0 account
+- Git
 
 ### 1. Clone Repository & Install Dependencies
 
 ```bash
-git clone https://github.com/<your-github>/profile-temporal-app.git
-cd profile-temporal-app
+git clone https://github.com/PrashantPalve01/platformatory-temporal-profile-app
+cd platformatory-temporal-profile-app
 
 # Install backend dependencies
 cd server && npm install
@@ -111,6 +111,18 @@ VITE_API_BASE_URL=http://localhost:5000/api
 
 ### 4. Start Infrastructure Services
 
+#### Prerequisites: Start Docker Desktop
+
+```bash
+# Ensure Docker Desktop is running
+# Windows/macOS: Start Docker Desktop application
+# Linux: Start Docker daemon
+
+# Verify Docker is accessible
+docker --version
+docker-compose --version
+```
+
 #### Start Temporal Server
 
 ```bash
@@ -118,21 +130,27 @@ VITE_API_BASE_URL=http://localhost:5000/api
 git clone https://github.com/temporalio/docker-compose.git temporal-server
 cd temporal-server
 
-# Start Temporal services
+# Start Temporal services (requires Docker Desktop running)
 docker-compose up -d
 
-# Verify setup - Web UI available at http://localhost:8233
+# Verify all services are running
+docker-compose ps
+
+# Temporal Web UI will be available at http://localhost:8080
 cd ..
 ```
 
 #### Start MongoDB
 
 ```bash
-# Option 1: Docker
+# Option 1: Docker (Recommended)
 docker run -d --name mongodb -p 27017:27017 mongo:latest
 
-# Option 2: Local installation
-# Make sure MongoDB is running on port 27017
+# Option 2: Local MongoDB installation
+# Ensure MongoDB service is running on port 27017
+
+# Verify MongoDB is accessible
+docker ps | grep mongo
 ```
 
 ### 5. Launch Application Services
@@ -253,21 +271,6 @@ _Responsive design across all devices_
 
 ---
 
-## 🧪 Testing & Quality Assurance
-
-### Running Tests
-
-```bash
-# Backend tests
-cd server && npm test
-
-# Frontend tests
-cd client && npm test
-
-# E2E tests (if implemented)
-npm run test:e2e
-```
-
 ### Code Quality
 
 - **TypeScript**: Full type safety across Temporal workers
@@ -301,11 +304,37 @@ npm run test:e2e
 
 ### Common Issues & Solutions
 
+**Issue**: Docker commands fail with "Cannot connect to Docker daemon"
+
+```bash
+# Solution: Ensure Docker Desktop is running
+# Windows/macOS: Open Docker Desktop application
+# Linux: sudo systemctl start docker
+
+# Verify Docker is accessible
+docker --version
+docker-compose --version
+```
+
+**Issue**: Temporal services won't start
+
+```bash
+# Solution: Check if ports are already in use or restart services
+docker-compose -f temporal-server/docker-compose.yml down
+docker-compose -f temporal-server/docker-compose.yml up -d
+
+# Check service status
+docker-compose -f temporal-server/docker-compose.yml ps
+```
+
 **Issue**: Temporal worker not connecting
 
 ```bash
 # Solution: Ensure Temporal server is running
 docker-compose -f temporal-server/docker-compose.yml ps
+
+# Check if all Temporal services are healthy
+docker-compose -f temporal-server/docker-compose.yml logs
 ```
 
 **Issue**: Auth0 login redirects to error page
@@ -320,7 +349,20 @@ docker-compose -f temporal-server/docker-compose.yml ps
 ```bash
 # Solution: Verify MongoDB is running
 docker ps | grep mongo
+
 # Or check local MongoDB service status
+# Windows: net start MongoDB
+# Linux/macOS: brew services start mongodb-community
+```
+
+**Issue**: Port conflicts (5000, 5173, 8080, 27017 already in use)
+
+```bash
+# Solution: Find and stop processes using these ports
+# Windows: netstat -ano | findstr :5000
+# Linux/macOS: lsof -i :5000
+
+# Or change ports in environment variables
 ```
 
 ---
